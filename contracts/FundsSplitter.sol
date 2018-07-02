@@ -1,54 +1,47 @@
 pragma solidity ^0.4.23;
 
 /**
- * Contract for keeping ledger of credit.
+ * @title Contract for keeping ledger of credit.
  * Credit will be divided into two and shall be assigned
  * to beneficiary 1 and beneficiary 2
  **/
 contract FundsSplitter {
-    address alice; /* Owner of the contract */
-    address bob; /* Beneficiary 1 */
-    address carol; /* Beneficiary 2*/
+    address public alice; /* Owner of the contract */
+    address public bob; /* Beneficiary 1 */
+    address public carol; /* Beneficiary 2*/
     
     uint public bobBalance;
     uint public carolBalance;
     
-    event logAccountDebit(address indexed who, uint ttlCr, uint amtCr);
-    event logReset(address indexed who, address bobAdd, address carolAdd);
+    event LogAccountDebit(address indexed who, uint ttlCr, uint amtCr); /*Commit#2: Changing to CapCase*/ 
+    event LogReset(address indexed who, address bobAdd, address carolAdd); /*Commit#2: Changing to CapCase*/ 
 
-    
-    constructor() public{
+    /**
+     * Adding bob and carol add so that contract is
+     * bounded to the addresses set during deployement time.
+     * @param bobAdd Bob's Address
+     * @param carolAdd Carol's Address
+     */
+    constructor(address bobAdd, address carolAdd) public{
         // Leting Alice be the owner of the contract
         alice = msg.sender;
-    }
-    
-    /**
-     * Function for seting bob's address 
-     **/
-    function setBobAdd(address bobAdd) public{
-        assert(bob == address(0) && alice == msg.sender);
         bob = bobAdd;
-    }
-    
-    /**
-     * Function for seting carol's address
-     **/
-    function setCarolAdd(address carolAdd) public{
-        assert(carol == address(0) && alice == msg.sender);
         carol = carolAdd;
     }
-    
-    
+       
     /**
      * Fucntion for dividing credits into two and debiting 
      * carol and bob's accounts by dividing the credit into two
      **/
-    function debit(uint credit) public{
+    function splitFunds() public payable returns(bool succcess){
         require((msg.sender == alice) && (bob != address(0)) && (carol != address(0)));
-        uint amount = credit / 2;
-        emit logAccountDebit(msg.sender, credit, amount);
+        uint amount = msg.value / 2;
+        emit LogAccountDebit(msg.sender, msg.value, amount);
         bobBalance = bobBalance + amount;
         carolBalance = carolBalance + amount;
+        bob.send(amount);
+        carol.transfer(amount);
+        return true;
     }
     
     /**
@@ -61,15 +54,6 @@ contract FundsSplitter {
             return carolBalance;
         }else revert();
         
-    }
-
-    function reset() public{
-        require(msg.sender == alice);
-        emit logReset(msg.sender,bob,carol);
-        bob = address(0);
-        carol = address(0);
-        bobBalance = 0;
-        carolBalance = 0;
     }
     
 }
