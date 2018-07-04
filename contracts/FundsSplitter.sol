@@ -34,14 +34,31 @@ contract FundsSplitter {
      * carol and bob's accounts by dividing the credit into two
      **/
     function splitFunds() public payable returns(bool succcess){
-        require((msg.sender == alice) && (bob != address(0)) && (carol != address(0)));
+        require((msg.sender == alice) && (bob != address(0)) && (carol != address(0)), "Invalid address");
         uint amount = msg.value / 2;
         emit LogAccountDebit(msg.sender, msg.value, amount);
         bobBalance = bobBalance + amount;
-        carolBalance = carolBalance + amount;
-        bob.send(amount);
-        carol.transfer(amount);
+        carolBalance = msg.value - amount;        
         return true;
+    }
+
+    function withdrawFunds(address addr, uint funds) public{
+        // this function will withdraw whole funds associated with each
+        // address and transfer the amount to the resp
+        require(funds > 0); // Funds can not be <= 0
+        if(addr == bob){
+            // initiate transaction from bob
+            require (funds <= bobBalance, "Not enough funds");
+            bobBalance -= funds;
+            addr.transfer(funds);
+        }else if(addr == carol){
+            // initiate transaction from carol            
+            require (funds <= carolBalance, "Not enough funds");
+            bobBalance -= funds;
+            addr.transfer(funds);
+        }else{
+            revert("Invlaid address provided");
+        }        
     }
     
     /**
