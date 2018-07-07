@@ -10,14 +10,17 @@ pragma solidity ^0.4.23;
  * sender can name any two receivers. This means bob and carol are not special. You have 
  * to think about everyone.        
  **/
-contract FundsSplitter {
-    address alice; /* Owner of the contract */
-    address bob; /* Beneficiary 1 */
-    address carol; /* Beneficiary 2*/
+contract FundsSplitter {    
+
+    struct Transaction{
+        address sender;
+        address receiver;        
+        uint balance;               
+    }
     bool public paused;
-    
-    uint public bobBalance;
-    uint public carolBalance;
+    address public owner;
+    mapping(bytes32 => Transaction) public splitTransactions;
+        
     
     event LogSplit(address indexed from, address receiver1, address receiver2, uint amount); /*Commit#4: Refactoring*/ 
     event LogWithdrawl(address indexed who, uint amount, uint balance); /*Commit#3: Index withdrawal */    
@@ -29,7 +32,7 @@ contract FundsSplitter {
      * by owner 
      */
     modifier ownerOnly{
-        require(msg.sender == alice, "[ER01] Invalid owner address");
+        require(msg.sender == owner, "[ER01] Invalid owner address");
         _;
     }
 
@@ -50,57 +53,45 @@ contract FundsSplitter {
     }
 
     /**
-     * Adding bob and carol add so that contract is
-     * bounded to the addresses set during deployement time.
-     * @param bobAdd Bob's Address
-     * @param carolAdd Carol's Address
-     */
-    constructor(address bobAdd, address carolAdd) public{
-        // Leting Alice be the owner of the contract
-        alice = msg.sender;
-        bob = bobAdd;
-        carol = carolAdd;
+     * Procedure no longer depends on any arguments.
+     */ 
+    constructor() public {
+        owner = msg.sender;
     }
        
     /**
-     * Fucntion for dividing credits into two and debiting 
-     * carol and bob's accounts by dividing the credit into two
-     * @return success Incase funds are split sucessfully
+     * Refactored! Proecure will take receiver address and does 
+     * not depends on the owner.
      **/
-    function splitFunds() public payable ownerOnly whenNotPaused returns(bool succcess)  {
-        require(bob != address(0) ,"[ER02] Invalid address");
-        require(carol != address(0),"[ER02] Invalid address");
-        uint amount = msg.value / 2;        
-        bobBalance = bobBalance + amount;
-        carolBalance = msg.value - amount;        
-        emit LogSplit(msg.sender, bob,carol, msg.value);
+    function splitFunds(address receiver1, address receiver2) public payable whenNotPaused returns(bool success)  {                
+        require(receiver1 != address(0), "[ER02] Invalid address");
+        require(receiver2 != address(0), "[ER02] Invalid address");
+        require(receiver1 != receiver2, "[ER02] Invalid address");
+        require(msg.value > 0, "[ER04] Invalid Values");
+        uint amount = msg.value / 2;                
+        bytes32 key1 = keccak256(msg.sender,receiver1);
+        bytes32 key2 = keccak256(msg.sender,receiver2);
+        splitTransactions[key1] = Transaction(msg.sender,receiver1, splitTransactions[key1].balance+amount);
+        splitTransactions[key2] = Transaction(msg.sender,receiver2,splitTransactions[key2].balance +(msg.value - amount));        
+        emit LogSplit(msg.sender, receiver1,receiver2, msg.value);
         return true;
     }
 
     /**
      * Procedure for withdrawing debited amount to the 
      * specific owner
-     * @param funds Funds to withdraw
+     * @param amount Funds to withdraw
+     * @param sender Address of the transaction initiator
      */
-    function withdrawFunds(uint amount) whenNotPaused public{
+    function withdrawFunds(uint amount, address sender) whenNotPaused public{
         // this function will withdraw whole funds associated with each
         // address and transfer the amount to the resp
         require(amount > 0); // Funds can not be <= 0
-        if(msg.sender == bob){
-            // initiate transaction from bob
-            require (amount <= bobBalance, "[ER03] Not enough funds");
-            bobBalance -= amount;            
-            msg.sender.transfer(amount);
-            emit LogWithdrawl(msg.sender,amount,bobBalance);
-        }else if(msg.sender == carol){
-            // initiate transaction from carol            
-            require (amount <= carolBalance, "[ER03] Not enough funds");
-            bobBalance -= amount;            
-            msg.sender.transfer(amount);
-            emit LogWithdrawl(msg.sender,amount, carolBalance);
-        }else{
-            revert("[ER04] Invlaid address");
-        }        
+        bytes32 key = keccak256(sender,msg.sender);
+        require(splitTransactions[key].receiver == msg.sender,"[ER03] Invalid address");
+        require(splitTransactions[key].balance >= amount,"[ER03] Not enough Funds");
+        splitTransactions[key].balance -= amount;
+        splitTransactions[key].receiver.transfer(amount);        
     }
     
 
