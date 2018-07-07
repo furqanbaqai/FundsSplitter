@@ -4,20 +4,25 @@ pragma solidity ^0.4.23;
  * @title Contract for keeping ledger of credit.
  * Credit will be divided into two and shall be assigned
  * to beneficiary 1 and beneficiary 2
+ * Revision# 04: Incorporating Review comments by Rob.
+ * Stretch Goals: After you addressed the small hints, refactor the contract so it can 
+ * handle many splits from many people at the same time. Additionally, make it so each 
+ * sender can name any two receivers. This means bob and carol are not special. You have 
+ * to think about everyone.        
  **/
 contract FundsSplitter {
     address alice; /* Owner of the contract */
     address bob; /* Beneficiary 1 */
     address carol; /* Beneficiary 2*/
-    bool public paused = false;
+    bool public paused;
     
-    uint bobBalance;
-    uint carolBalance;
+    uint public bobBalance;
+    uint public carolBalance;
     
-    event LogSplitFunds(address indexed who, uint ttlCr, uint bobBalance, uint carolBalance); /*Commit#2: Changing to CapCase*/ 
-    event LogWithdrawl(address indexed who, uint fundsWith, uint balance); /*Commit#3: Index withdrawal */    
-    event LogPause();
-    event LogUnPause();
+    event LogSplit(address indexed from, address receiver1, address receiver2, uint amount); /*Commit#4: Refactoring*/ 
+    event LogWithdrawl(address indexed who, uint amount, uint balance); /*Commit#3: Index withdrawal */    
+    event LogPause(address sender);
+    event LogUnPause(address sender);
     
     /**
      * Modifier for checking if the procedure is called
@@ -63,11 +68,12 @@ contract FundsSplitter {
      * @return success Incase funds are split sucessfully
      **/
     function splitFunds() public payable ownerOnly whenNotPaused returns(bool succcess)  {
-        require((bob != address(0)) && (carol != address(0)), "[ER02] Invalid address");
+        require(bob != address(0) ,"[ER02] Invalid address");
+        require(carol != address(0),"[ER02] Invalid address");
         uint amount = msg.value / 2;        
         bobBalance = bobBalance + amount;
         carolBalance = msg.value - amount;        
-        emit LogSplitFunds(msg.sender, msg.value, bobBalance, carolBalance);
+        emit LogSplit(msg.sender, bob,carol, msg.value);
         return true;
     }
 
@@ -76,46 +82,34 @@ contract FundsSplitter {
      * specific owner
      * @param funds Funds to withdraw
      */
-    function withdrawFunds(uint funds) whenNotPaused public{
+    function withdrawFunds(uint amount) whenNotPaused public{
         // this function will withdraw whole funds associated with each
         // address and transfer the amount to the resp
-        require(funds > 0); // Funds can not be <= 0
+        require(amount > 0); // Funds can not be <= 0
         if(msg.sender == bob){
             // initiate transaction from bob
-            require (funds <= bobBalance, "[ER03] Not enough funds");
-            bobBalance -= funds;
-            emit LogWithdrawl(msg.sender,funds,bobBalance);
-            msg.sender.transfer(funds);
+            require (amount <= bobBalance, "[ER03] Not enough funds");
+            bobBalance -= amount;            
+            msg.sender.transfer(amount);
+            emit LogWithdrawl(msg.sender,amount,bobBalance);
         }else if(msg.sender == carol){
             // initiate transaction from carol            
-            require (funds <= carolBalance, "[ER03] Not enough funds");
-            bobBalance -= funds;
-            emit LogWithdrawl(msg.sender,funds, carolBalance);
-            msg.sender.transfer(funds);
+            require (amount <= carolBalance, "[ER03] Not enough funds");
+            bobBalance -= amount;            
+            msg.sender.transfer(amount);
+            emit LogWithdrawl(msg.sender,amount, carolBalance);
         }else{
             revert("[ER04] Invlaid address");
         }        
     }
     
-    /**
-     * Function for fetching balance of an account 
-     * @return balance Balance of the owner
-     **/
-    function getBalance() view public returns(uint balance) {
-        if(msg.sender == bob){
-            return bobBalance;
-        }else if (msg.sender == carol){
-            return carolBalance;
-        }else revert("[ER04] Invalid address provided");
-        
-    }
 
     /**
      * Procedure to pause the contract
      */
     function pause() ownerOnly whenNotPaused public{
         paused = true;
-        emit LogPause();
+        emit LogPause(msg.sender);
     }
 
     /**
@@ -123,7 +117,7 @@ contract FundsSplitter {
      */
     function unpause() ownerOnly whenPaused public{
         paused = false;
-        emit LogUnPause();
+        emit LogUnPause(msg.sender);
     }
     
 }
