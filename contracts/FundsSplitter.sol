@@ -18,7 +18,7 @@ contract FundsSplitter {
         
     
     event LogSplit(address indexed from, address receiver1, address receiver2, uint amount); /*Commit#4: Refactoring*/ 
-    event LogWithdrawl(address indexed who, uint amount, uint balance); /*Commit#3: Index withdrawal */    
+    event LogWithdrawl(address indexed who, uint amount); /*Commit#3: Index withdrawal */    
     event LogPause(address initiator);
     event LogUnPause(address initiator);
     
@@ -80,6 +80,7 @@ contract FundsSplitter {
         require(balances[msg.sender] > 0, "[ER03] Invalid address");
         require(balances[msg.sender] >= amount, "[ER04] Not enough Funds");
         balances[msg.sender] -= amount;
+        emit LogWithdrawl(msg.sender, amount);
         msg.sender.transfer(amount);
     }
     
