@@ -1,57 +1,26 @@
 pragma solidity ^0.4.24;
 
+import "./Pausable.sol";
+
 /**
  * @title Contract for keeping ledger of credit.
  * Credit will be divided into two and shall be assigned
  * to beneficiary 1 and beneficiary 2
- * Revision# 04: Incorporating Review comments by Rob.
- * Changes:
- *      1. Making contract more simpler by changing ownership mechanisim.
+ * Revision# 08: Incorporating Review comments by Rob.
  **/
-contract FundsSplitter {    
-
-
-    bool public paused;
-    address public owner;
-
-    mapping(address => uint) public balances;
-        
+contract FundsSplitter is Pausable {    
+      
+    mapping(address => uint) public balances;        
     
     event LogSplit(address indexed from, address receiver1, address receiver2, uint amount); /*Commit#4: Refactoring*/ 
-    event LogWithdrawl(address indexed who, uint amount); /*Commit#3: Index withdrawal */    
-    event LogPause(address initiator);
-    event LogUnPause(address initiator);
+    event LogWithdrawl(address indexed who, uint amount); /*Commit#3: Index withdrawal */        
     
-    /**
-     * Modifier for checking if the procedure is called
-     * by owner 
-     */
-    modifier ownerOnly{
-        require(msg.sender == owner, "[ER01] Invalid owner address");
-        _;
-    }
 
-    /**
-     * Modifier to validate if contract is not paused
-     */
-    modifier whenNotPaused(){
-        require(!paused, "[ER05] Contract is paused");
-        _;
-    }
-
-    /**
-     * Modifier to validate if the contract is paused
-     */
-    modifier whenPaused(){
-        require(paused, "[ER06] Contract is not paused");
-        _;
-    }
 
     /**
      * Procedure no longer depends on any arguments.
      */ 
-    constructor() public {
-        owner = msg.sender;
+    constructor() public {       
     }
        
     /**
@@ -63,10 +32,10 @@ contract FundsSplitter {
         require(receiver2 != address(0), "[ER02] Invalid address");
         require(receiver1 != receiver2, "[ER02] Invalid address");
         require(msg.value > 0, "[ER04] Invalid Values");
-        uint amount = msg.value.div(2);                
-        balances[receiver1] = balances[receiver1].add(amount);
-        balances[receiver2] = balances[receiver2].add(amount);
-        if(msg.value % 2 == 1) balances[msg.sender] = balances[msg.sender].add(1);
+        uint amount = msg.value / 2;                
+        balances[receiver1] += amount;
+        balances[receiver2] += amount;
+        if(msg.value % 2 == 1) balances[msg.sender] += 1;
         emit LogSplit(msg.sender, receiver1,receiver2, msg.value);
         return true;
     }
@@ -87,20 +56,5 @@ contract FundsSplitter {
     }
     
 
-    /**
-     * Procedure to pause the contract
-     */
-    function pause() ownerOnly whenNotPaused public{
-        paused = true;
-        emit LogPause(msg.sender);
-    }
-
-    /**
-     * Procedure to unpause the contract
-     */
-    function unpause() ownerOnly whenPaused public{
-        paused = false;
-        emit LogUnPause(msg.sender);
-    }
     
 }
